@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AXP — Major Buyers & Sellers Since 1970</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --bg2: #111827;
+    --surface: #1a2236;
+    --border: #2a3550;
+    --text: #e2e8f0;
+    --text-dim: #8899b4;
+    --accent-buy: #10b981;
+    --accent-buy-glow: rgba(16, 185, 129, 0.25);
+    --accent-sell: #f43f5e;
+    --accent-sell-glow: rgba(244, 63, 94, 0.25);
+    --accent-corp: #6366f1;
+    --accent-corp-glow: rgba(99, 102, 241, 0.2);
+    --accent-gold: #f59e0b;
+    --accent-gold-glow: rgba(245, 158, 11, 0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .noise {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  header {
+    position: relative; z-index: 1;
+    text-align: center;
+    padding: 60px 24px 40px;
+    background: linear-gradient(180deg, rgba(99,102,241,0.08) 0%, transparent 100%);
+  }
+
+  header .ticker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; font-weight: 500;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--accent-corp);
+    margin-bottom: 12px;
+    display: inline-block;
+    padding: 4px 14px;
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 4px;
+  }
+
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 400;
+    line-height: 1.15;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+
+  header p {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 620px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Filters */
+  .filters {
+    position: relative; z-index: 1;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 24px 36px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+
+  .filter-btn:hover { border-color: #4a5580; color: var(--text); }
+  .filter-btn.active { border-color: var(--accent-corp); color: #fff; background: rgba(99,102,241,0.12); }
+  .filter-btn.active[data-filter="buy"] { border-color: var(--accent-buy); background: rgba(16,185,129,0.1); }
+  .filter-btn.active[data-filter="sell"] { border-color: var(--accent-sell); background: rgba(244,63,94,0.1); }
+  .filter-btn.active[data-filter="corporate"] { border-color: var(--accent-gold); background: rgba(245,158,11,0.1); }
+
+  /* Timeline */
+  .timeline-container {
+    position: relative; z-index: 1;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  .timeline-line {
+    position: absolute;
+    left: 50%;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--accent-corp), var(--border) 15%, var(--border) 85%, transparent);
+    transform: translateX(-50%);
+  }
+
+  @media (max-width: 768px) {
+    .timeline-line { left: 20px; }
+  }
+
+  .decade-marker {
+    position: relative;
+    text-align: center;
+    margin: 52px 0 32px;
+    opacity: 0; transform: translateY(20px);
+    transition: all 0.5s ease;
+  }
+
+  .decade-marker.visible { opacity: 1; transform: translateY(0); }
+
+  .decade-marker span {
+    font-family: 'DM Serif Display', serif;
+    font-size: 34px;
+    color: rgba(99,102,241,0.35);
+    background: var(--bg);
+    padding: 0 22px;
+    position: relative;
+    z-index: 1;
+  }
+
+  @media (max-width: 768px) {
+    .decade-marker { text-align: left; padding-left: 48px; }
+  }
+
+  /* Event cards */
+  .event {
+    position: relative;
+    width: 44%;
+    margin-bottom: 38px;
+    opacity: 0; transform: translateY(30px);
+    transition: all 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .event.visible { opacity: 1; transform: translateY(0); }
+  .event.hidden { display: none; }
+
+  .event.left { margin-right: auto; margin-left: 0; text-align: right; }
+  .event.right { margin-left: auto; margin-right: 0; text-align: left; }
+
+  @media (max-width: 768px) {
+    .event.left, .event.right { width: calc(100% - 50px); margin-left: 50px; text-align: left; }
+  }
+
+  .event .dot {
+    position: absolute;
+    top: 20px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2.5px solid;
+    background: var(--bg);
+    z-index: 2;
+    transition: box-shadow 0.3s, transform 0.3s;
+  }
+
+  .event.left .dot { right: -33px; }
+  .event.right .dot { left: -33px; }
+
+  @media (max-width: 768px) {
+    .event.left .dot, .event.right .dot { left: -36px; right: auto; }
+  }
+
+  .event[data-type="buy"] .dot { border-color: var(--accent-buy); }
+  .event[data-type="sell"] .dot { border-color: var(--accent-sell); }
+  .event[data-type="corporate"] .dot { border-color: var(--accent-gold); }
+
+  .event:hover .dot { transform: scale(1.35); }
+  .event[data-type="buy"]:hover .dot { box-shadow: 0 0 16px var(--accent-buy-glow); background: rgba(16,185,129,0.15); }
+  .event[data-type="sell"]:hover .dot { box-shadow: 0 0 16px var(--accent-sell-glow); background: rgba(244,63,94,0.15); }
+  .event[data-type="corporate"]:hover .dot { box-shadow: 0 0 16px var(--accent-gold-glow); background: rgba(245,158,11,0.15); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    transition: all 0.3s;
+    cursor: default;
+  }
+
+  .card:hover {
+    border-color: #3d4f73;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .card .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .event.left .meta-row { justify-content: flex-end; }
+  @media (max-width: 768px) {
+    .event.left .meta-row { justify-content: flex-start; }
+  }
+
+  .card .year-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 1px;
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+  }
+
+  .event[data-type="buy"] .year-badge { background: rgba(16,185,129,0.12); color: var(--accent-buy); }
+  .event[data-type="sell"] .year-badge { background: rgba(244,63,94,0.12); color: var(--accent-sell); }
+  .event[data-type="corporate"] .year-badge { background: rgba(245,158,11,0.12); color: var(--accent-gold); }
+
+  .card .type-label {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .event[data-type="buy"] .type-label { color: var(--accent-buy); }
+  .event[data-type="sell"] .type-label { color: var(--accent-sell); }
+  .event[data-type="corporate"] .type-label { color: var(--accent-gold); }
+
+  .card h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 17px;
+    font-weight: 400;
+    color: #fff;
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+
+  .card .actor {
+    font-size: 12.5px; font-weight: 600;
+    color: var(--accent-corp);
+    margin-bottom: 7px;
+    letter-spacing: 0.2px;
+  }
+
+  .card p {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-dim);
+  }
+
+  .card .value {
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    padding: 5px 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  /* Legend */
+  .legend {
+    position: relative; z-index: 1;
+    display: flex; justify-content: center; gap: 28px;
+    padding: 0 24px 24px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--text-dim); font-weight: 500;
+  }
+
+  .legend-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+  }
+
+  .legend-dot.buy { background: var(--accent-buy); }
+  .legend-dot.sell { background: var(--accent-sell); }
+  .legend-dot.corp { background: var(--accent-gold); }
+
+  footer {
+    position: relative; z-index: 1;
+    text-align: center;
+    padding: 32px 24px 52px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    opacity: 0.45;
+    max-width: 700px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+
+<header>
+  <div class="ticker">NYSE: AXP</div>
+  <h1>American Express<br>Major Buyers & Sellers</h1>
+  <p>Key shareholders, acquirers, and divestitures that shaped AXP ownership from the 1960s to today — including Buffett's legendary position, the conglomerate era, and modern buyback programmes.</p>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot buy"></div>Buyer / Accumulation</div>
+  <div class="legend-item"><div class="legend-dot sell"></div>Seller / Divestiture</div>
+  <div class="legend-item"><div class="legend-dot corp"></div>Corporate Action</div>
+</div>
+
+<div class="filters">
+  <button class="filter-btn active" data-filter="all">All Events</button>
+  <button class="filter-btn" data-filter="buy">Buyers</button>
+  <button class="filter-btn" data-filter="sell">Sellers</button>
+  <button class="filter-btn" data-filter="corporate">Corporate</button>
+</div>
+
+<div class="timeline-container">
+  <div class="timeline-line"></div>
+</div>
+
+<footer>Sources: SEC 13D/13G filings, Berkshire Hathaway annual reports &amp; shareholder letters, American Express investor relations, company press releases, and financial archives. Compiled for educational and research purposes — not investment advice.</footer>
+
+<script>
+const events = [
+  // ---- 1960s ----
+  { year: 1964, type: "buy", actor: "Warren Buffett (Buffett Partnership)", title: "Buffett Buys 5% During Salad Oil Scandal",
+    desc: "The salad oil scandal crushed AXP to ~$35. Buffett recognised the brand's durability and invested ~$13M — roughly 40% of his partnership. He later exited this position before the Berkshire era.",
+    value: "~$13M · ~5% stake", decade: 1960 },
+  { year: 1968, type: "buy", actor: "American Express (Acquirer)", title: "Acquires Fireman's Fund Insurance",
+    desc: "AmEx entered the P&C insurance business by acquiring Fireman's Fund in a stock exchange valued at ~$500M, beginning a two-decade conglomerate expansion strategy.",
+    value: "~$500M stock deal", decade: 1960 },
+
+  // ---- 1980s ----
+  { year: 1981, type: "buy", actor: "Sandy Weill → American Express", title: "AmEx Acquires Shearson Loeb Rhoades",
+    desc: "Weill's Shearson, Wall Street's #2 brokerage, was acquired for ~$930M. Weill became AmEx president. This deal kicked off a decade of financial supermarket consolidation.",
+    value: "$930M acquisition", decade: 1980 },
+  { year: 1983, type: "buy", actor: "American Express (Acquirer)", title: "Buys Edmond Safra's Trade Development Bank",
+    desc: "AmEx acquired Safra's Geneva-based TDB for $550M. Safra joined the board but the relationship collapsed — AmEx launched a smear campaign, later publicly apologising in 1989 and paying $8M to charity.",
+    value: "$550M", decade: 1980 },
+  { year: 1984, type: "buy", actor: "American Express (Acquirer)", title: "Acquires Lehman Brothers & IDS Financial",
+    desc: "Lehman Brothers Kuhn Loeb was folded into Shearson for $360M, creating Shearson Lehman. Separately, AmEx acquired IDS Financial Services from Alleghany Corp, adding financial advisors and mutual fund distribution.",
+    value: "$360M (Lehman) + IDS", decade: 1980 },
+  { year: 1985, type: "sell", actor: "American Express (Divesting)", title: "Spins Off Fireman's Fund Insurance",
+    desc: "After heavy insurance losses ($87M net loss), AmEx spun off 49% of Fireman's Fund in what was then the largest US IPO, raising $824M. Weill resigned from AmEx entirely shortly after.",
+    value: "$824M IPO (largest at the time)", decade: 1980 },
+  { year: 1988, type: "buy", actor: "Shearson Lehman / American Express", title: "Acquires E.F. Hutton & Co.",
+    desc: "The 83-year-old brokerage E.F. Hutton was absorbed for $1B, creating Shearson Lehman Hutton — again #2 on Wall Street behind Merrill Lynch. Peak financial supermarket.",
+    value: "$1B", decade: 1980 },
+
+  // ---- 1990s ----
+  { year: 1991, type: "buy", actor: "Warren Buffett / Berkshire Hathaway", title: "Buffett's Major AXP Accumulation Begins",
+    desc: "Buffett began his modern, large-scale investment at ~$6.50/share (split-adjusted). Over the 1990s, Berkshire accumulated 50M+ shares, building toward a 10%+ position that would become one of his defining holdings.",
+    value: "Entry ~$6.50/share · Built to ~11%", decade: 1990 },
+  { year: 1993, type: "sell", actor: "AmEx → Primerica / Travelers (Sandy Weill)", title: "Sells Shearson Brokerage to Weill",
+    desc: "New CEO Harvey Golub began dismantling the financial conglomerate. Weill re-acquired his old Shearson brokerage from AmEx for $1.2B through Primerica (later Travelers → Citigroup), merging it with Smith Barney.",
+    value: "$1.2B sale to Primerica", decade: 1990 },
+  { year: 1994, type: "sell", actor: "American Express (Spin-off)", title: "Spins Off Lehman Brothers as Independent Co.",
+    desc: "Under Golub, AmEx completed its exit from investment banking by spinning off Lehman Brothers Holdings. Lehman operated independently for nearly 15 years before its infamous 2008 bankruptcy.",
+    value: "Full spin-off to shareholders", decade: 1990 },
+  { year: "1994–95", type: "corporate", actor: "Harvey Golub (CEO)", title: "Strategic Refocus: Cards, Travel & Network",
+    desc: "With Shearson sold and Lehman gone, AmEx returned to its core — charge/credit cards, the closed-loop merchant network, and travel services. Aggressive share buybacks began shrinking the float.",
+    value: "Core business refocus", decade: 1990 },
+  { year: 1998, type: "buy", actor: "FMR Corp. (Fidelity Investments)", title: "Fidelity Builds to ~10% Stake",
+    desc: "The Johnson family's FMR Corp. accumulated ~45M shares approaching the 10% 13G disclosure threshold, making Fidelity one of the two largest shareholders alongside Berkshire Hathaway.",
+    value: "~45M shares · ~10%", decade: 1990 },
+
+  // ---- 2000s ----
+  { year: 2001, type: "corporate", actor: "Ken Chenault (CEO)", title: "Chenault Becomes CEO · Navigates 9/11 & Recession",
+    desc: "Chenault succeeded Golub — the first Black CEO of a Dow 30 company. He steered AmEx through the 9/11 crisis (HQ was near Ground Zero) and the subsequent recession while protecting the premium brand positioning.",
+    value: "Leadership transition", decade: 2000 },
+  { year: 2005, type: "sell", actor: "American Express (Spin-off)", title: "Spins Off Ameriprise Financial (ex-IDS)",
+    desc: "AmEx completed the spin-off of its financial advisory division (formerly IDS, then AEFA) as Ameriprise Financial. Shareholders received 1 Ameriprise share per 5 AXP shares — distributing ~246M shares.",
+    value: "~246M shares distributed", decade: 2000 },
+  { year: 2008, type: "corporate", actor: "American Express", title: "Converts to Bank Holding Company (GFC)",
+    desc: "During the global financial crisis, AmEx converted to a bank holding company to access Fed emergency lending. The stock fell ~65% from its 2007 peak. Buffett held firm — a key conviction signal for the market.",
+    value: "AXP fell ~65% peak-to-trough", decade: 2000 },
+
+  // ---- 2010s ----
+  { year: 2013, type: "corporate", actor: "American Express Board", title: "150M Share Repurchase Authorisation",
+    desc: "The board approved buying back up to 150M shares, replacing a prior equivalent programme. The Fed cleared $3.2B in buybacks — accelerating the share count reduction that passively increased Buffett's ownership %.",
+    value: "150M shares · $3.2B cleared", decade: 2010 },
+  { year: 2015, type: "sell", actor: "Costco (Ended Co-Brand Partnership)", title: "Costco Terminates Exclusive AmEx Card Deal",
+    desc: "After 16 years, Costco switched its exclusive co-brand card to Visa/Citigroup. AmEx lost ~8M co-brand cards and roughly 20% of worldwide transaction volume. Shares fell sharply on the news.",
+    value: "Lost ~8M cards · ~20% volume", decade: 2010 },
+  { year: "2016–19", type: "buy", actor: "Vanguard Group & BlackRock", title: "Index Giants Build to ~6% Each",
+    desc: "Through passive index funds and ETFs, Vanguard grew to 46M+ shares (~6.6%) and BlackRock to 42M+ shares (~6.1%), becoming the #2 and #3 shareholders behind Berkshire. Together they held ~13% of the company.",
+    value: "Vanguard ~46M · BlackRock ~42M shs", decade: 2010 },
+
+  // ---- 2020s ----
+  { year: 2020, type: "corporate", actor: "Berkshire Hathaway (Passive Growth)", title: "AXP Becomes Berkshire's Largest Holding by %",
+    desc: "Without buying a single new share since the late 1990s, Berkshire's stake grew from ~11% to ~18% purely through AmEx's buybacks reducing the float. Buffett later called this 'a wonderful thing' at the 2022 meeting.",
+    value: "~151.6M shares · ~18% → 20%+", decade: 2020 },
+  { year: 2022, type: "buy", actor: "Fisher Asset Management (Ken Fisher)", title: "Fisher Investments Grows Major AXP Position",
+    desc: "Ken Fisher's growth-oriented firm became a top-10 institutional holder, building a multi-billion dollar position based on AmEx's premium consumer franchise and pricing power.",
+    value: "Top-10 institutional holder", decade: 2020 },
+  { year: 2023, type: "corporate", actor: "American Express Board", title: "120M Share Buyback + 15% Dividend Hike",
+    desc: "Board authorised up to 120M shares, replacing the 2019 plan. Combined with a 15% dividend increase to $0.60/quarter. In 2021 alone, AmEx had returned $9B via buybacks and dividends.",
+    value: "120M share auth · div $0.60/qtr", decade: 2020 },
+  { year: 2026, type: "corporate", actor: "American Express (CEO Squeri)", title: "$16B Buyback Programme + Raised Guidance",
+    desc: "In March 2026, AmEx announced a $16B share repurchase programme and raised full-year 2026 guidance. Shares jumped 6%+. Squeri cited record spending velocity among younger premium members.",
+    value: "$16B buyback · 16% div increase", decade: 2020 },
+];
+
+const decades = [1960, 1980, 1990, 2000, 2010, 2020];
+const decadeLabels = { 1960: '1960s–70s', 1980: '1980s', 1990: '1990s', 2000: '2000s', 2010: '2010s', 2020: '2020s' };
+const container = document.querySelector('.timeline-container');
+let side = 'left';
+
+decades.forEach(d => {
+  const decadeEvents = events.filter(e => e.decade === d);
+  if (decadeEvents.length === 0) return;
+
+  const marker = document.createElement('div');
+  marker.className = 'decade-marker';
+  marker.dataset.decade = d;
+  marker.innerHTML = `<span>${decadeLabels[d] || d + 's'}</span>`;
+  container.appendChild(marker);
+
+  decadeEvents.forEach(ev => {
+    const el = document.createElement('div');
+    el.className = `event ${side}`;
+    el.dataset.type = ev.type;
+    el.dataset.decade = d;
+
+    const typeLabels = { buy: 'Buyer', sell: 'Seller / Exit', corporate: 'Corporate Action' };
+
+    el.innerHTML = `
+      <div class="dot"></div>
+      <div class="card">
+        <div class="meta-row">
+          <span class="year-badge">${ev.year}</span>
+          <span class="type-label">${typeLabels[ev.type]}</span>
+        </div>
+        <div class="actor">${ev.actor}</div>
+        <h3>${ev.title}</h3>
+        <p>${ev.desc}</p>
+        ${ev.value ? `<div class="value">${ev.value}</div>` : ''}
+      </div>
+    `;
+    container.appendChild(el);
+    side = side === 'left' ? 'right' : 'left';
+  });
+});
+
+// Filter logic
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filter = btn.dataset.filter;
+
+    document.querySelectorAll('.event').forEach(ev => {
+      if (filter === 'all' || ev.dataset.type === filter) {
+        ev.classList.remove('hidden');
+      } else {
+        ev.classList.add('hidden');
+      }
+    });
+
+    document.querySelectorAll('.decade-marker').forEach(marker => {
+      const dec = marker.dataset.decade;
+      const hasVisible = [...document.querySelectorAll(`.event[data-decade="${dec}"]`)].some(e => !e.classList.contains('hidden'));
+      marker.style.display = hasVisible ? '' : 'none';
+    });
+  });
+});
+
+// Scroll-reveal
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -30px 0px' });
+
+document.querySelectorAll('.event, .decade-marker').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
